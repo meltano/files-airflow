@@ -71,7 +71,7 @@ for schedule in schedules:
         tags.append(schedule["loader"])
     if schedule["transform"] == "run":
         tags.append("transform")
-    if schedule["transform"] == "only":
+    elif schedule["transform"] == "only":
         tags.append("transform-only")
 
     # from https://airflow.apache.org/docs/stable/scheduler.html#backfill-and-catchup
