@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7
+
+- [#5](https://gitlab.com/meltano/files-airflow/-/issues/5) Add extractor and loader names as DAG tags
+
 ## 0.6
 
 - [#4](https://gitlab.com/meltano/files-airflow/-/issues/4) Use new `meltano schedule run <name>` command
