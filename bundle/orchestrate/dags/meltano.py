@@ -69,11 +69,10 @@ for schedule in schedules:
         tags.append(schedule["extractor"])
     if schedule["loader"]:
         tags.append(schedule["loader"])
-    if schedule["transform"]:
-        if schedule["transform"] == "run":
-            tags.append("transform")
-        elif schedule["transform"] == "only":
-            tags.append("transform-only")
+    if schedule["transform"] == "run":
+        tags.append("transform")
+    if schedule["transform"] == "only":
+        tags.append("transform-only")
 
     # from https://airflow.apache.org/docs/stable/scheduler.html#backfill-and-catchup
     #
