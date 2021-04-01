@@ -8,7 +8,11 @@ import subprocess
 import json
 
 from airflow import DAG
-from airflow.operators.bash_operator import BashOperator
+try:
+    from airflow.operators.bash_operator import BashOperator
+except ImportError:
+    from airflow.operators.bash import BashOperator
+
 from datetime import timedelta
 from pathlib import Path
 
