@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8
+
+- [!7](https://gitlab.com/meltano/files-airflow/-/merge_requests/7) Add support for Airflow v2
+
 ## 0.7
 
 - [#5](https://gitlab.com/meltano/files-airflow/-/issues/5) Add extractor and loader names as DAG tags
