@@ -1,0 +1,10 @@
+dags:
+  full_dag:
+    generator: dbt
+    interval: '0 0 * * 6,0'
+    selection_rule: '*'
+  example_select:
+    generator: dbt
+    interval: '0 */2 * * 1-5'
+    selection_rule: '+fact_example'
+
