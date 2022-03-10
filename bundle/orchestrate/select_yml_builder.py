@@ -1,11 +1,10 @@
-from dags.dbt_generator_utilities import DbtGeneratorUtilities
+from dags.generators.dbt_generator import DbtGenerator
 import os
 import yaml
 
 MELTANO_PROJECT_ROOT = '/Users/pnadolny/Documents/Git/meltano_project/airflow_hack/airflow_hack'
 
-dbt_utils = DbtGeneratorUtilities(
-    'dag',
+dbt_utils = DbtGenerator(
     MELTANO_PROJECT_ROOT,
     'MELTANO_ENVIRONMENT',
     'MELTANO_TARGET'

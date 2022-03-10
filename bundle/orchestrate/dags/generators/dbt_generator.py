@@ -1,14 +1,14 @@
 import json
 import logging
 import subprocess
+import yaml
 
 logger = logging.getLogger(__name__)
 
 
-class DbtGeneratorUtilities:
+class DbtGenerator:
 
-    def __init__(self, dag, project_root, env, target):
-        self.dag = dag
+    def __init__(self, project_root, env, target):
         self.project_root = project_root
         self.env = env
         self.target = target
@@ -19,7 +19,7 @@ class DbtGeneratorUtilities:
             data = json.load(f)
         return data
 
-    def make_dbt_task(self, node, dbt_verb):
+    def make_dbt_task(self, dag, node, dbt_verb):
         """Returns an Airflow operator either run and test an individual model"""
         from airflow.operators.bash import BashOperator
 
@@ -30,7 +30,7 @@ class DbtGeneratorUtilities:
                 bash_command=f"""
                 cd {self.project_root}; meltano --environment={self.env} invoke dbt:{dbt_verb} --models {model}
                 """,
-                dag=self.dag,
+                dag=dag,
             )
         elif dbt_verb == "test":
             node_test = node.replace("model", "test")
@@ -39,7 +39,7 @@ class DbtGeneratorUtilities:
                 bash_command=f"""
                 cd {self.project_root}; meltano --environment={self.env} invoke dbt:{dbt_verb} --models {model}
                 """,
-                dag=self.dag,
+                dag=dag,
             )
         return dbt_task
 
@@ -68,19 +68,29 @@ class DbtGeneratorUtilities:
         package_name = node_details["package_name"]
         return f"{package_name}.{path}"
 
-    def build_tasks_list(self, manifest, selected_models):
+    def build_tasks_list(self, dag, manifest, selected_models):
         dbt_tasks = {}
         for node in manifest["nodes"].keys():
             name = self.get_full_model_name(manifest, node)
             if node.split(".")[0] == "model" and name in selected_models:
                 node_test = node.replace("model", "test")
-                dbt_tasks[node] = self.make_dbt_task(node, "run")
-                dbt_tasks[node_test] = self.make_dbt_task(node, "test")
+                dbt_tasks[node] = self.make_dbt_task(dag, node, "run")
+                dbt_tasks[node_test] = self.make_dbt_task(dag, node, "test")
         return dbt_tasks
 
+    def read_cache(self):
+        local_filepath = f"{self.project_root}/orchestrate/dbt_selection_cache.yml"
+        with open(local_filepath) as yaml_file:
+            data = yaml.safe_load(yaml_file)
+        return data
 
-    def build_dag(self, manifest, dbt_tasks, selected_models):
+    def build_dag(self, dag):
         from airflow.operators.bash import BashOperator
+
+        cache = self.read_cache()
+        manifest = cache.get("manifest")
+        selected_models = cache.get("selections")
+        dbt_tasks = self.build_tasks_list(dag, manifest, selected_models)
 
         for node in manifest["nodes"].keys():
             name = self.get_full_model_name(manifest, node)
@@ -101,6 +111,6 @@ class DbtGeneratorUtilities:
                             bash_command=f"""
                             cd {self.project_root}; {meltano_cmd} 
                             """,
-                            dag=self.dag,
+                            dag=dag,
                         )
                         yield meltano_task, dbt_tasks[node]

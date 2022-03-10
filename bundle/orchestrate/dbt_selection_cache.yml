@@ -1,0 +1,22 @@
+# This is just a sample file, this does not get installed to the project.
+# The dbt DAG generator needs data from the dbt manifest file and to run some `ls --select x` commands
+# to define what models should be considered in a DAG. This is done before loading the DAGs to Airflow so
+# it only has to be done at build time and does not waste compute regenerating each time the DAG file is parsed.
+manifest:
+  full_manifest_file: gets_stored_here
+selections:
+  full_dag:
+  - my_meltano_project.tap_gitlab.commits_again
+  - my_meltano_project.tap_gitlab.fact_commit
+  - my_meltano_project.tap_gitlab.fact_commit_raw
+  - my_meltano_project.tap_gitlab.more_commits
+  - my_meltano_project.tap_gitlab.stg_gitlab_commits
+  - my_meltano_project.tap_gitlab.stg_gitlab_tags
+  - my_meltano_project.tap_other.stg_other_table
+  example_select:
+  - my_meltano_project.tap_gitlab.commits_again
+  - my_meltano_project.tap_gitlab.fact_commit
+  - my_meltano_project.tap_gitlab.fact_commit_raw
+  - my_meltano_project.tap_gitlab.more_commits
+  - my_meltano_project.tap_gitlab.stg_gitlab_commits
+  - source:my_meltano_project.tap_gitlab.commits
