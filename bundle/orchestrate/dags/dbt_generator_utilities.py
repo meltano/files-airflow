@@ -2,8 +2,6 @@ import json
 import logging
 import subprocess
 
-from airflow.operators.bash import BashOperator
-
 logger = logging.getLogger(__name__)
 
 
@@ -23,6 +21,8 @@ class DbtGeneratorUtilities:
 
     def make_dbt_task(self, node, dbt_verb):
         """Returns an Airflow operator either run and test an individual model"""
+        from airflow.operators.bash import BashOperator
+
         model = node.split(".")[-1]
         if dbt_verb == "run":
             dbt_task = BashOperator(
@@ -80,6 +80,8 @@ class DbtGeneratorUtilities:
 
 
     def build_dag(self, manifest, dbt_tasks, selected_models):
+        from airflow.operators.bash import BashOperator
+
         for node in manifest["nodes"].keys():
             name = self.get_full_model_name(manifest, node)
             if node.split(".")[0] == "model" and name in selected_models:

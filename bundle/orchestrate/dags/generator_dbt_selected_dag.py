@@ -31,7 +31,7 @@ args = DEFAULT_ARGS.copy()
 
 with open(os.path.join(MELTANO_PROJECT_ROOT, "orchestrate", "dag_definition.yml"), "r") as yaml_file:
     yaml_content = yaml.safe_load(yaml_file)
-    dags = yaml_content.get("dags")
+    dags = yaml_content.get("dags", {}).get("dag_definitions")
 
 for dag_name, dag_def in dags.items():
     logger.info(f"Considering dag '{dag_name}'")
@@ -47,11 +47,12 @@ for dag_name, dag_def in dags.items():
         max_active_runs=1,
     )
 
+    # TODO: put this in the utilities
     dbt_utils = DbtGeneratorUtilities(dag, MELTANO_PROJECT_ROOT, MELTANO_ENVIRONMENT, MELTANO_TARGET)
     manifest = dbt_utils.load_manifest()
     selected_models = dbt_utils.get_models_from_select(MELTANO_ENVIRONMENT, dag_def["selection_rule"])
     dbt_tasks = dbt_utils.build_tasks_list(manifest, selected_models)
-
+    # TODO: factory for generators
     for down, up in dbt_utils.build_dag(manifest, dbt_tasks, selected_models):
         down >> up
 

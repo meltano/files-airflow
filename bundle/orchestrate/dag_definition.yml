@@ -1,10 +1,17 @@
 dags:
-  full_dag:
-    generator: dbt
-    interval: '0 0 * * 6,0'
-    selection_rule: '*'
-  example_select:
-    generator: dbt
-    interval: '0 */2 * * 1-5'
-    selection_rule: '+fact_example'
-
+  generator_configs:
+    default_target: "target-postgres"
+    stream_level: true
+    dbt:
+      source_tap_mapping:
+        tap_gitlab.commits: tap-gitlab.commits
+  dag_definitions:
+    full_dag:
+      # Weekends - Full DAG once a day end to end
+      generator: dbt
+      interval: '0 0 * * 6,0'
+      selection_rule: '*'
+    example_select:
+      generator: dbt
+      interval: '0 */2 * * 1-5'
+      selection_rule: '+fact_example'
