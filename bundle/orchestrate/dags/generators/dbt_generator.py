@@ -3,10 +3,6 @@ import yaml
 from pendulum import datetime
 from generators.base_generator import BaseGenerator
 from airflow import DAG
-try:
-    from airflow.operators.bash_operator import BashOperator
-except ImportError:
-    from airflow.operators.bash import BashOperator
 
 
 logger = logging.getLogger(__name__)
@@ -22,21 +18,19 @@ class DbtGenerator(BaseGenerator):
 
         model = node.split(".")[-1]
         if dbt_verb == "run":
-            dbt_task = BashOperator(
-                task_id=node,
-                bash_command=f"""
-                cd {self.project_root}; {self.meltano_bin} --environment={self.env} invoke dbt:{dbt_verb} --models {model}
-                """,
-                dag=dag,
+            dbt_task = self.get_operator(
+                dag,
+                node,
+                node,
+                f"cd {self.project_root}; {self.meltano_bin} --environment={self.env} invoke dbt:{dbt_verb} --models {model}",
             )
         elif dbt_verb == "test":
             node_test = node.replace("model", "test")
-            dbt_task = BashOperator(
-                task_id=node_test,
-                bash_command=f"""
-                cd {self.project_root}; {self.meltano_bin} --environment={self.env} invoke dbt:{dbt_verb} --models {model}
-                """,
-                dag=dag,
+            dbt_task = self.get_operator(
+                dag,
+                node_test,
+                node_test,
+                f"cd {self.project_root}; {self.meltano_bin} --environment={self.env} invoke dbt:{dbt_verb} --models {model}",
             )
         return dbt_task
 
@@ -111,12 +105,11 @@ class DbtGenerator(BaseGenerator):
                     elif upstream_node_type == "source":
                         # For source run Meltano jobs
                         meltano_cmd = self._build_meltano_cmd(upstream_node, self.env, stream=True)
-                        meltano_task = BashOperator(
-                            task_id=f"meltano-{upstream_node}",
-                            bash_command=f"""
-                            cd {self.project_root}; {meltano_cmd} 
-                            """,
-                            dag=dag,
+                        meltano_task = self.get_operator(
+                            dag,
+                            f"meltano-{upstream_node}",
+                            f"meltano-{upstream_node}",
+                            f"cd {self.project_root}; {meltano_cmd}",
                         )
                         yield [meltano_task, dbt_tasks[node]]
         # Register custom steps
@@ -124,11 +117,10 @@ class DbtGenerator(BaseGenerator):
             for depends_on in step["depends_on"]:
                 yield [
                     dbt_tasks[depends_on],
-                    BashOperator(
-                        task_id=step["name"],
-                        bash_command=f"""
-                        cd {self.project_root}; {step["cmd"]}
-                        """,
-                        dag=dag,
+                    self.get_operator(
+                        dag,
+                        step["name"],
+                        step["name"],
+                        f"cd {self.project_root}; {step['cmd']}",
                     )
                 ]

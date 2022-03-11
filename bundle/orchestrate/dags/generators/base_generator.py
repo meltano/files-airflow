@@ -2,6 +2,15 @@ from abc import ABC, abstractmethod
 from airflow import DAG
 from pathlib import Path
 import logging
+from datetime import datetime, timedelta
+from airflow.models import Variable
+try:
+    from airflow.operators.bash_operator import BashOperator
+except ImportError:
+    from airflow.operators.bash import BashOperator
+
+meltano_log_level = Variable.get("MELTANO_LOG_LEVEL", "info")
+
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +29,9 @@ class BaseGenerator(ABC):
             )
             meltano_bin = "meltano"
         self.meltano_bin = meltano_bin
+        self.operator = ""
+        if self.operator == "k8":
+            from meltano_k8_operator import MeltanoKubernetesPodOperator
 
     @abstractmethod
     def create_tasks(self, dag: DAG, dag_name: str, dag_def: dict):
@@ -28,3 +40,25 @@ class BaseGenerator(ABC):
     @abstractmethod
     def create_dag(self, dag_name: str, dag_def: dict, args: dict) -> DAG:
         pass
+
+    def get_operator(self, dag, task_id, name, cmd, retry_delay=timedelta(minutes=5), retries=0):
+        if self.operator == "k8":
+            task = MeltanoKubernetesPodOperator(
+                task_id=task_id,
+                name=name,
+                environment=self.env,
+                log_level=meltano_log_level,
+                arguments=[cmd],
+                dag=dag,
+                retry_delay=retry_delay,
+            )
+        else:
+            task = BashOperator(
+                task_id=task_id,
+                # name=name,
+                bash_command=cmd,
+                retries=retries,
+                dag=dag,
+                retry_delay=retry_delay,
+            )
+        return task
