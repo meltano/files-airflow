@@ -4,6 +4,21 @@
 # it only has to be done at build time and does not waste compute regenerating each time the DAG file is parsed.
 manifest:
   full_manifest_file: gets_stored_here
+meltano_schedules:
+- cron_interval: 0 0 * * *
+  elt_args:
+  - tap-gitlab
+  - target-postgres
+  - --transform=skip
+  - --job_id=gitlab_schedule
+  env: {}
+  extractor: tap-gitlab
+  interval: '@daily'
+  last_successful_run_ended_at: null
+  loader: target-postgres
+  name: gitlab_schedule
+  start_date: '2022-03-11'
+  transform: skip
 selections:
   full_dag:
   - my_meltano_project.tap_gitlab.commits_again

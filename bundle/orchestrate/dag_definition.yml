@@ -1,8 +1,8 @@
 dags:
   generator_configs:
-    default_target: "target-postgres"
-    stream_level: true
     dbt:
+      default_target: "target-postgres"
+      stream_level: true
       source_tap_mapping:
         tap_gitlab.commits: tap-gitlab.commits
   dag_definitions:
@@ -12,6 +12,7 @@ dags:
       interval: '0 0 * * 6,0'
       selection_rule: '*'
     example_select:
+      # SLA is every 2 hrs - Weekdays only
       generator: dbt
       interval: '0 */2 * * 1-5'
       selection_rule: '+fact_example'

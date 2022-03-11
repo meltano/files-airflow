@@ -1,9 +1,10 @@
 from .dbt_generator import DbtGenerator
-
+from .meltano_schedule_generator import MeltanoScheduleGenerator
 class GeneratorFactory:
 
     _factory = {
-        "dbt": DbtGenerator
+        "dbt": DbtGenerator,
+        "meltano_schedules": MeltanoScheduleGenerator,
     }
 
     @classmethod
