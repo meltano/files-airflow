@@ -54,7 +54,7 @@ for dag_name, dag_def in dags.items():
         raise Exception(dag_id, generator)
     dag = generator.create_dag(dag_name, dag_def, args)
     for tasks in generator.create_tasks(dag, dag_def):
-        if tasks:
+        if len(tasks) > 1:
             tasks[0] >> tasks[1]
 
     # register the dag

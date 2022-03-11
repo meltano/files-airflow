@@ -28,11 +28,13 @@ class MeltanoScheduleGenerator(BaseGenerator):
         super().__init__(*args, **kwargs)
 
     def create_tasks(self, dag, dag_def):
-        BashOperator(
-            task_id="extract_load",
-            bash_command=f"cd {self.project_root}; {self.meltano_bin} schedule run {dag_def['name']}",
-            dag=dag,
-        )
+        yield [
+            BashOperator(
+                task_id="extract_load",
+                bash_command=f"cd {self.project_root}; {self.meltano_bin} schedule run {dag_def['name']}",
+                dag=dag,
+            )
+        ]
 
     def create_dag(self, dag_name: str, dag_def: dict, args: dict) -> DAG:
         logger.info(f"Considering schedule '{dag_def['name']}': {dag_def}")
