@@ -48,7 +48,7 @@ class DbtGenerator(BaseGenerator):
             select_filter = f"--select {meltano_stream}"
         # TODO: this makes and assumption of how taps are named, we should add a translation layer for exceptional cases
         tap = tap.replace("_", "-")
-        target = self.generator_configs("dbt", {}).get("default_target")
+        target = self.generator_configs.get("dbt", {}).get("default_target")
         return f"meltano --log-level=debug --environment={env} elt {tap} {target} {select_filter} --job_id={tap}_{target}"
 
     @staticmethod
@@ -87,11 +87,11 @@ class DbtGenerator(BaseGenerator):
             max_active_runs=1,
         )
 
-    def create_tasks(self, dag, dag_def):
+    def create_tasks(self, dag, dag_name, dag_def):
 
         cache = self._read_cache()
         manifest = cache.get("manifest")
-        selected_models = cache.get("selections")
+        selected_models = cache.get("selections")[dag_name]
         dbt_tasks = self._build_tasks_list(dag, manifest, selected_models)
 
         for node in manifest["nodes"].keys():

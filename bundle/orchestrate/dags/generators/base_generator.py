@@ -22,7 +22,7 @@ class BaseGenerator(ABC):
         self.meltano_bin = meltano_bin
 
     @abstractmethod
-    def create_tasks(self, dag: DAG, dag_def: dict):
+    def create_tasks(self, dag: DAG, dag_name: str, dag_def: dict):
         pass
 
     @abstractmethod

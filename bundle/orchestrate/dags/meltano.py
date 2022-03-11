@@ -39,7 +39,7 @@ with open(os.path.join(project_root, "orchestrate", "dag_definition.yml"), "r") 
 # Add all Meltano schedules to list of dag defintions
 with open(os.path.join(project_root, "orchestrate", "generator_cache.yml"), "r") as yaml_file:
     yaml_content = yaml.safe_load(yaml_file)
-    for schedule in yaml_content.get("meltano_schedules"):
+    for schedule in yaml_content.get("meltano_schedules", []):
         dags[f"meltano_{schedule['name']}"] = {**schedule, "generator": "meltano_schedules"}
 
 
@@ -50,10 +50,8 @@ for dag_name, dag_def in dags.items():
 
     generator_obj = GeneratorFactory.get_generator(dag_def["generator"])
     generator = generator_obj(project_root, MELTANO_ENVIRONMENT, generator_configs)
-    if not generator:
-        raise Exception(dag_id, generator)
     dag = generator.create_dag(dag_name, dag_def, args)
-    for tasks in generator.create_tasks(dag, dag_def):
+    for tasks in generator.create_tasks(dag, dag_name, dag_def):
         if len(tasks) > 1:
             tasks[0] >> tasks[1]
 

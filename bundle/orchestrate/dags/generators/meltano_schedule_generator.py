@@ -27,7 +27,7 @@ class MeltanoScheduleGenerator(BaseGenerator):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def create_tasks(self, dag, dag_def):
+    def create_tasks(self, dag, dag_name, dag_def):
         yield [
             BashOperator(
                 task_id="extract_load",
