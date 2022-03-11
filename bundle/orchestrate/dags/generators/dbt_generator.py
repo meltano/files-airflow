@@ -25,7 +25,7 @@ class DbtGenerator(BaseGenerator):
             dbt_task = BashOperator(
                 task_id=node,
                 bash_command=f"""
-                cd {self.project_root}; meltano --environment={self.env} invoke dbt:{dbt_verb} --models {model}
+                cd {self.project_root}; {self.meltano_bin} --environment={self.env} invoke dbt:{dbt_verb} --models {model}
                 """,
                 dag=dag,
             )
@@ -34,7 +34,7 @@ class DbtGenerator(BaseGenerator):
             dbt_task = BashOperator(
                 task_id=node_test,
                 bash_command=f"""
-                cd {self.project_root}; meltano --environment={self.env} invoke dbt:{dbt_verb} --models {model}
+                cd {self.project_root}; {self.meltano_bin} --environment={self.env} invoke dbt:{dbt_verb} --models {model}
                 """,
                 dag=dag,
             )
@@ -53,11 +53,14 @@ class DbtGenerator(BaseGenerator):
 
     @staticmethod
     def _get_full_model_name(manifest, node):
-        node_details = manifest["nodes"][node]
-        path_sql = node_details["path"].replace("/", ".")
-        path = path_sql.replace(".sql", "")
-        package_name = node_details["package_name"]
-        return f"{package_name}.{path}"
+        if manifest["nodes"].get(node):
+            node_details = manifest["nodes"][node]
+            path_sql = node_details["path"].replace("/", ".")
+            path = path_sql.replace(".sql", "")
+            package_name = node_details["package_name"]
+            return f"{package_name}.{path}"
+        else:
+            return node
 
     def _build_tasks_list(self, dag, manifest, selected_models):
         dbt_tasks = {}
@@ -116,3 +119,16 @@ class DbtGenerator(BaseGenerator):
                             dag=dag,
                         )
                         yield [meltano_task, dbt_tasks[node]]
+        # Register custom steps
+        for step in dag_def.get("steps", []):
+            for depends_on in step["depends_on"]:
+                yield [
+                    dbt_tasks[depends_on],
+                    BashOperator(
+                        task_id=step["name"],
+                        bash_command=f"""
+                        cd {self.project_root}; {step["cmd"]}
+                        """,
+                        dag=dag,
+                    )
+                ]

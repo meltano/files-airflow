@@ -5,13 +5,9 @@ import yaml
 from generators.generator_factory import GeneratorFactory
 
 logger = logging.getLogger(__name__)
-
-
-# We're hardcoding this value here for the purpose of the demo, but in a production environment this
-# would probably come from a config file and/or environment variables!
 project_root = os.getenv("MELTANO_PROJECT_ROOT", os.getcwd())
 
-
+# TODO: how can we get this from the environment or somewhere else?
 MELTANO_ENVIRONMENT = "dev"
 
 DEFAULT_ARGS = {
