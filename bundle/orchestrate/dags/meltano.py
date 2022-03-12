@@ -3,6 +3,7 @@ import os
 import logging
 import yaml
 from generators.generator_factory import GeneratorFactory
+from generator_cache_builder import GeneratorCacheBuilder
 
 logger = logging.getLogger(__name__)
 project_root = os.getenv("MELTANO_PROJECT_ROOT", os.getcwd())
@@ -33,7 +34,15 @@ with open(os.path.join(project_root, "orchestrate", "dag_definition.yml"), "r") 
     dags = dags_all.get("dag_definitions")
 
 # Add all Meltano schedules to list of dag defintions
-with open(os.path.join(project_root, "orchestrate", "generator_cache.yml"), "r") as yaml_file:
+# TODO: in the future these should be co-located in the dag definition file
+file_name = os.path.join(project_root, "orchestrate", "generator_cache.yml")
+if not os.path.isfile(file_name):
+    logger.info(f"Generator cache not found, rebuilding..")
+    builder = GeneratorCacheBuilder()
+    builder.refresh_cache()
+    logger.info(f"Generator cache rebuild complete.")
+
+with open(file_name, "r") as yaml_file:
     yaml_content = yaml.safe_load(yaml_file)
     for schedule in yaml_content.get("meltano_schedules", []):
         dags[f"meltano_{schedule['name']}"] = {**schedule, "generator": "meltano_schedules"}
