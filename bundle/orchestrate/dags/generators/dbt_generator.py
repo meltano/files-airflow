@@ -15,7 +15,6 @@ class DbtGenerator(BaseGenerator):
 
     def _make_dbt_task(self, dag, node, dbt_verb):
         """Returns an Airflow operator either run and test an individual model"""
-
         model = node.split(".")[-1]
         if dbt_verb == "run":
             dbt_task = self.get_operator(
@@ -34,16 +33,39 @@ class DbtGenerator(BaseGenerator):
             )
         return dbt_task
 
-    def _build_meltano_cmd(self, dbt_source_node, env, stream=False):
-        parts = dbt_source_node.split(".")
-        tap = parts[2]
-        if stream:
-            meltano_stream = parts[3]
+    @staticmethod
+    def _get_tap_name(dbt_source_node, dbt_config):
+        source_tap_mapping = dbt_config.get("source_tap_mapping")
+        source_name = ".".join(dbt_source_node.split(".")[2:])
+        if source_name in source_tap_mapping:
+            # manually mapped dbt source to tap name
+            tap = source_tap_mapping.get(source_name).split(".")[0]
+        else:
+            tap = dbt_source_node.split(".")[2]
+            tap = tap.replace("_", "-")
+        return tap
+
+    @staticmethod
+    def _get_select_filter(dbt_source_node, dbt_config):
+        select_filter = ""
+        if dbt_config.get("stream_level"):
+            meltano_stream = dbt_source_node.split(".")[3]
             select_filter = f"--select {meltano_stream}"
-        # TODO: this makes and assumption of how taps are named, we should add a translation layer for exceptional cases
-        tap = tap.replace("_", "-")
-        target = self.generator_configs.get("dbt", {}).get("default_target")
-        return f"meltano --log-level=debug --environment={env} elt {tap} {target} {select_filter} --job_id={tap}_{target}"
+        return select_filter
+
+    @staticmethod
+    def _get_job_id(tap, target):
+        job_id = f"{tap}_{target}"
+        job_id.replace("-", "_")
+        return job_id
+
+    def _build_meltano_cmd(self, dbt_source_node, env):
+        dbt_config = self.generator_configs.get("dbt", {})
+        tap = self._get_tap_name(dbt_source_node, dbt_config)
+        select_filter = self._get_select_filter(dbt_source_node, dbt_config)
+        target = dbt_config.get("default_target")
+        job_id = self._get_job_id(tap, target)
+        return f"meltano --log-level=debug --environment={env} elt {tap} {target} {select_filter} --job_id={job_id}"
 
     @staticmethod
     def _get_full_model_name(manifest, node):
@@ -104,7 +126,7 @@ class DbtGenerator(BaseGenerator):
                         yield [dbt_tasks[upstream_node], dbt_tasks[node]]
                     elif upstream_node_type == "source":
                         # For source run Meltano jobs
-                        meltano_cmd = self._build_meltano_cmd(upstream_node, self.env, stream=True)
+                        meltano_cmd = self._build_meltano_cmd(upstream_node, self.env)
                         meltano_task = self.get_operator(
                             dag,
                             f"meltano-{upstream_node}",

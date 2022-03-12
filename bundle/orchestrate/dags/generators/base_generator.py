@@ -30,8 +30,6 @@ class BaseGenerator(ABC):
             meltano_bin = "meltano"
         self.meltano_bin = meltano_bin
         self.operator = ""
-        if self.operator == "k8":
-            from meltano_k8_operator import MeltanoKubernetesPodOperator
 
     @abstractmethod
     def create_tasks(self, dag: DAG, dag_name: str, dag_def: dict):
@@ -43,6 +41,7 @@ class BaseGenerator(ABC):
 
     def get_operator(self, dag, task_id, name, cmd, retry_delay=timedelta(minutes=5), retries=0):
         if self.operator == "k8":
+            from meltano_k8_operator import MeltanoKubernetesPodOperator
             task = MeltanoKubernetesPodOperator(
                 task_id=task_id,
                 name=name,
