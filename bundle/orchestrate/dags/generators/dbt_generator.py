@@ -35,7 +35,7 @@ class DbtGenerator(BaseGenerator):
 
     @staticmethod
     def _get_tap_name(dbt_source_node, dbt_config):
-        source_tap_mapping = dbt_config.get("source_tap_mapping")
+        source_tap_mapping = dbt_config.get("source_tap_mapping", [])
         source_name = ".".join(dbt_source_node.split(".")[2:])
         if source_name in source_tap_mapping:
             # manually mapped dbt source to tap name
@@ -122,7 +122,8 @@ class DbtGenerator(BaseGenerator):
                 # Set all model -> model dependencies
                 for upstream_node in manifest["nodes"][node]["depends_on"]["nodes"]:
                     upstream_node_type = upstream_node.split(".")[0]
-                    if upstream_node_type == "model":
+                    upstream_node_name = self._get_full_model_name(manifest, upstream_node)
+                    if upstream_node_type == "model" and upstream_node_name in selected_models:
                         yield [dbt_tasks[upstream_node], dbt_tasks[node]]
                     elif upstream_node_type == "source":
                         # For source run Meltano jobs
