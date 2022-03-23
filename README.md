@@ -12,3 +12,5 @@ meltano add orchestrator airflow
 # Add only this file bundle to your Meltano project
 meltano add files airflow
 ```
+
+For details on how the contents of this file bundle work, check out [DAG Generators README.md](./bundle/orchestrate/README.md).

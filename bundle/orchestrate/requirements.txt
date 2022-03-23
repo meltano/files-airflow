@@ -1,0 +1,2 @@
+# Extra packages to install in Airflow worker container
+PyYAML
