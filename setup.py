@@ -10,7 +10,8 @@ setup(
             "orchestrate/dags/generators/*.py",
             "orchestrate/dags/*.py",
             "orchestrate/plugins/*.py",
-            "orchestrate/*.yml"
+            "orchestrate/*.yml",
+            "orchestrate/README.md"
         ]
     },
 )
