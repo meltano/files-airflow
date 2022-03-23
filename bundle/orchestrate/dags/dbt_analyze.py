@@ -75,8 +75,9 @@ class DbtAnalyze:
     def get_all_dbt_set(self, dbt_manifest):
         unique_nodes = set()
         for node in dbt_manifest.get("nodes"):
-            full_name = self._get_full_model_name(dbt_manifest, node)
-            unique_nodes.add(full_name)
+            if node.split(".")[0] == "model":
+                full_name = self._get_full_model_name(dbt_manifest, node)
+                unique_nodes.add(full_name)
         return unique_nodes
 
     def find_missing_models(self, dbt_manifest, dbt_selections):
@@ -92,6 +93,9 @@ class DbtAnalyze:
 if __name__ == "__main__":
     analyze = DbtAnalyze()
     missing_models = analyze.analyze()
-    print("Models not referenced:")
-    for model in missing_models:
-        print(f"    {model}")
+    if missing_models:
+        print("Models not referenced:")
+        for model in missing_models:
+            print(f"    {model}")
+    else:
+        print("All models referenced in selection criteria!")

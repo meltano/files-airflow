@@ -108,7 +108,7 @@ dags:
 
 Since all of your dbt DAGs are defined in configurations its now possible to analyze your configurations for potential mistakes.
 
-For example you can run `python orchestrator/dags/dbt_analyze.py` which will compile all of your selection runs and let you know if there are any models that you have missed across all your DAG selection rules.
+For example you can run `python orchestrate/dags/dbt_analyze.py` which will compile all of your selection runs and let you know if there are any models that you have missed across all your DAG selection rules.
 As a project gets bigger and the selection rules get more advanced it can be easy to lose track of what models are running in what DAG and potentially leave some stale.
 
 
@@ -117,7 +117,7 @@ As a project gets bigger and the selection rules get more advanced it can be eas
 
 The generators use a `generator_cache.yml` file to pre-compile the information that it needs in order to build the DAGs.
 This includes the dbt manifest.json, the Meltano schedules, and the output of each of your dbt DAG selection rules.
-You can create the cache file by running `python orchestrator/dags/generator_cache_builder.py` or the generator will automatically create it itself if the file doesnt exist at runtime.
+You can create the cache file by running `python orchestrate/dags/generator_cache_builder.py` or the generator will automatically create it itself if the file doesnt exist at runtime.
 
 The advantages of doing it this way is that you don't need to install generator dependencies like Meltano in the Airflow webserver execution environment, which is particularly useful for Docker/Kubernetes deployments where Airflow and Meltano are run in separate containers.
 In this case, the cache file can be used as a build artifact that gets generated during CI and packaged with the Airflow container.
