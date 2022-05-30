@@ -1,0 +1,23 @@
+dags:
+  generator_configs:
+    dbt:
+      default_target: "target-postgres"
+      stream_level: true
+      source_tap_mapping:
+        tap_gitlab.commits: tap-gitlab.commits
+  dag_definitions:
+    full_dag:
+      # Weekends - Full DAG once a day end to end
+      generator: dbt
+      interval: '0 0 * * 6,0'
+      selection_rule: '*'
+      steps:
+        - name: custom_task_something_extra
+          cmd: 'meltano --version'
+          depends_on:
+            - model.my_meltano_project.fact_commit
+    example_select:
+      # SLA is every 2 hrs - Weekdays only
+      generator: dbt
+      interval: '0 */2 * * 1-5'
+      selection_rule: '+fact_example'

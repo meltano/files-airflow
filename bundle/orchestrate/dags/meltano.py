@@ -1,27 +1,18 @@
-# If you want to define a custom DAG, create
-# a new file under orchestrate/dags/ and Airflow
-# will pick it up automatically.
-
+from datetime import timedelta
 import os
 import logging
-import subprocess
-import json
-
-from airflow import DAG
-try:
-    from airflow.operators.bash_operator import BashOperator
-except ImportError:
-    from airflow.operators.bash import BashOperator
-
-from datetime import timedelta
-from pathlib import Path
-
+import yaml
+from generators.generator_factory import GeneratorFactory
+from generator_cache_builder import GeneratorCacheBuilder
 
 logger = logging.getLogger(__name__)
+project_root = os.getenv("MELTANO_PROJECT_ROOT", os.getcwd())
 
+# TODO: how can we get this from the environment or somewhere else?
+MELTANO_ENVIRONMENT = "dev"
 
 DEFAULT_ARGS = {
-    "owner": "airflow",
+    "owner": "meltano",
     "depends_on_past": False,
     "email_on_failure": False,
     "email_on_retry": False,
@@ -33,74 +24,43 @@ DEFAULT_ARGS = {
 
 DEFAULT_TAGS = ["meltano"]
 
-project_root = os.getenv("MELTANO_PROJECT_ROOT", os.getcwd())
+args = DEFAULT_ARGS.copy()
 
-meltano_bin = ".meltano/run/bin"
+# Read all dag defintions
+with open(os.path.join(project_root, "orchestrate", "dag_definition.yml"), "r") as yaml_file:
+    yaml_content = yaml.safe_load(yaml_file)
+    dags_all = yaml_content.get("dags", {})
+    generator_configs = dags_all.get("generator_configs")
+    dags = dags_all.get("dag_definitions")
 
-if not Path(project_root).joinpath(meltano_bin).exists():
-    logger.warning(
-        f"A symlink to the 'meltano' executable could not be found at '{meltano_bin}'. Falling back on expecting it to be in the PATH instead."
-    )
-    meltano_bin = "meltano"
+# Add all Meltano schedules to list of dag defintions
+# TODO: in the future these should be co-located in the dag definition file
+file_name = os.path.join(project_root, "orchestrate", "generator_cache.yml")
+if not os.path.isfile(file_name):
+    logger.info(f"Generator cache not found, rebuilding..")
+    builder = GeneratorCacheBuilder()
+    builder.refresh_cache()
+    logger.info(f"Generator cache rebuild complete.")
+
+with open(file_name, "r") as yaml_file:
+    yaml_content = yaml.safe_load(yaml_file)
+    for schedule in yaml_content.get("meltano_schedules", []):
+        dags[f"meltano_{schedule['name']}"] = {**schedule, "generator": "meltano_schedules"}
 
 
-result = subprocess.run(
-    [meltano_bin, "schedule", "list", "--format=json"],
-    cwd=project_root,
-    stdout=subprocess.PIPE,
-    universal_newlines=True,
-    check=True,
-)
-schedules = json.loads(result.stdout)
+# Iterate all dag defintions and register them with Airflow
+for dag_name, dag_def in dags.items():
+    logger.info(f"Considering dag '{dag_name}' - {dag_def}")
+    dag_id = f"meltano_{dag_name}"
 
-for schedule in schedules:
-    logger.info(f"Considering schedule '{schedule['name']}': {schedule}")
-
-    if not schedule["cron_interval"]:
-        logger.info(
-            f"No DAG created for schedule '{schedule['name']}' because its interval is set to `@once`."
-        )
-        continue
-
-    args = DEFAULT_ARGS.copy()
-    if schedule["start_date"]:
-        args["start_date"] = schedule["start_date"]
-
-    dag_id = f"meltano_{schedule['name']}"
-
-    tags = DEFAULT_TAGS.copy()
-    if schedule["extractor"]:
-        tags.append(schedule["extractor"])
-    if schedule["loader"]:
-        tags.append(schedule["loader"])
-    if schedule["transform"] == "run":
-        tags.append("transform")
-    elif schedule["transform"] == "only":
-        tags.append("transform-only")
-
-    # from https://airflow.apache.org/docs/stable/scheduler.html#backfill-and-catchup
-    #
-    # It is crucial to set `catchup` to False so that Airflow only create a single job
-    # at the tail end of date window we want to extract data.
-    #
-    # Because our extractors do not support date-window extraction, it serves no
-    # purpose to enqueue date-chunked jobs for complete extraction window.
-    dag = DAG(
-        dag_id,
-        tags=tags,
-        catchup=False,
-        default_args=args,
-        schedule_interval=schedule["interval"],
-        max_active_runs=1,
-    )
-
-    elt = BashOperator(
-        task_id="extract_load",
-        bash_command=f"cd {project_root}; {meltano_bin} schedule run {schedule['name']}",
-        dag=dag,
-    )
+    generator_obj = GeneratorFactory.get_generator(dag_def["generator"])
+    generator = generator_obj(project_root, MELTANO_ENVIRONMENT, generator_configs)
+    dag = generator.create_dag(dag_name, dag_def, args)
+    for tasks in generator.create_tasks(dag, dag_name, dag_def):
+        if len(tasks) > 1:
+            tasks[0] >> tasks[1]
 
     # register the dag
     globals()[dag_id] = dag
 
-    logger.info(f"DAG created for schedule '{schedule['name']}'")
+    logger.info(f"DAG created for schedule '{dag_id}'")

@@ -5,5 +5,13 @@ setup(
     version="0.8",
     description="Meltano project files for Airflow",
     packages=find_packages(),
-    package_data={"bundle": ["orchestrate/dags/meltano.py"]},
+    package_data={
+        "bundle": [
+            "orchestrate/dags/generators/*.py",
+            "orchestrate/dags/*.py",
+            "orchestrate/plugins/*.py",
+            "orchestrate/*.yml",
+            "orchestrate/README.md"
+        ]
+    },
 )
