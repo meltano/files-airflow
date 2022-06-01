@@ -2,12 +2,13 @@
 # a new file under orchestrate/dags/ and Airflow
 # will pick it up automatically.
 
-import os
-import logging
-import subprocess
 import json
+import logging
+import os
+import subprocess
 
 from airflow import DAG
+
 try:
     from airflow.operators.bash_operator import BashOperator
 except ImportError:
@@ -15,7 +16,6 @@ except ImportError:
 
 from datetime import timedelta
 from pathlib import Path
-
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +55,7 @@ def _meltano_v1_generator(schedules):
 
         if not schedule["cron_interval"]:
             logger.info(
-                f"No DAG created for schedule '{schedule['name']}' because its interval is set to `@once`."
+                f"No DAG created for schedule '{schedule['name']}' because its interval is set to `@once`.",
             )
             continue
 
@@ -125,7 +125,9 @@ def _meltano_v2_job_generator(schedules):
         common_tags = DEFAULT_TAGS.copy()
         common_tags.append(schedule["job"]["name"])
         for idx, task in enumerate(schedule["job"]["tasks"]):
-            logger.info(f"Considering task '{task}' of schedule '{schedule['name']}': {schedule}")
+            logger.info(
+                f"Considering task '{task}' of schedule '{schedule['name']}': {schedule}"
+            )
             args = DEFAULT_ARGS.copy()
 
             dag_id = f"{base_id}_task{idx}"
@@ -157,20 +159,22 @@ def _meltano_v2_job_generator(schedules):
 
             # register the dag
             globals()[dag_id] = dag
-            logger.info(f"Task DAG created for schedule '{schedule['name']}',Task='{task}' ")
+            logger.info(
+                f"Task DAG created for schedule '{schedule['name']}',Task='{task}'"
+            )
 
 
-result = subprocess.run(
+list_result = subprocess.run(
     [meltano_bin, "schedule", "list", "--format=json"],
     cwd=project_root,
     stdout=subprocess.PIPE,
     universal_newlines=True,
     check=True,
 )
-schedules = json.loads(result.stdout)
+schedules = json.loads(list_result.stdout)
 
-if not (schedules.get("job") and schedules.get("elt")):
-    _meltano_v1_generator(schedules)
-else:
+if schedules.get("job") and schedules.get("elt"):
     _meltano_v1_generator(schedules.get("elt"))
     _meltano_v2_job_generator(schedules.get("job"))
+else:
+    _meltano_v1_generator(schedules)
