@@ -6,6 +6,7 @@ import json
 import logging
 import os
 import subprocess
+from collections.abc import Iterable
 
 from airflow import DAG
 
@@ -14,11 +15,10 @@ try:
 except ImportError:
     from airflow.operators.bash import BashOperator
 
-from datetime import timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
-
 
 DEFAULT_ARGS = {
     "owner": "airflow",
@@ -123,12 +123,16 @@ def _meltano_v2_job_generator(schedules):
 
         base_id = f"meltano_{schedule['name']}_{schedule['job']['name']}"
         common_tags = DEFAULT_TAGS.copy()
-        common_tags.append(schedule["job"]["name"])
+        common_tags.append(f"schedule:{schedule['name']}")
+        common_tags.append(f"job:{schedule['job']['name']}")
+        interval = schedule["cron_interval"]
+
         for idx, task in enumerate(schedule["job"]["tasks"]):
             logger.info(
                 f"Considering task '{task}' of schedule '{schedule['name']}': {schedule}"
             )
             args = DEFAULT_ARGS.copy()
+            args["start_date"] = datetime.utcnow()
 
             dag_id = f"{base_id}_task{idx}"
 
@@ -147,20 +151,25 @@ def _meltano_v2_job_generator(schedules):
                 tags=task_tags,
                 catchup=False,
                 default_args=args,
-                schedule_interval=schedule["interval"],
+                schedule_interval=interval,
                 max_active_runs=1,
             )
 
+            if isinstance(task, Iterable) and not isinstance(task, str):
+                run_args = " ".join(task)
+            else:
+                run_args = task
+
             elt = BashOperator(
-                task_id=task["name"],
-                bash_command=f"cd {project_root}; {meltano_bin} run {task}",
+                task_id=f"run_task_{idx}",
+                bash_command=f"cd {project_root}; {meltano_bin} run {run_args}",
                 dag=dag,
             )
 
             # register the dag
             globals()[dag_id] = dag
             logger.info(
-                f"Task DAG created for schedule '{schedule['name']}',Task='{task}'"
+                f"Task DAG created for schedule '{schedule['name']}', task='{run_args}'"
             )
 
 
@@ -171,10 +180,13 @@ list_result = subprocess.run(
     universal_newlines=True,
     check=True,
 )
-schedules = json.loads(list_result.stdout)
 
-if schedules.get("job") and schedules.get("elt"):
-    _meltano_v1_generator(schedules.get("elt"))
-    _meltano_v2_job_generator(schedules.get("job"))
+schedule_export = json.loads(list_result.stdout)
+
+if schedule_export.get("schedules"):
+    logger.info(f"Received meltano v2 style schedule export: {schedule_export}")
+    _meltano_v1_generator(schedule_export["schedules"].get("elt"))
+    _meltano_v2_job_generator(schedule_export["schedules"].get("job"))
 else:
-    _meltano_v1_generator(schedules)
+    logger.info(f"Received meltano v1 style schedule export: {schedule_export}")
+    _meltano_v1_generator(schedule_export)
