@@ -32,19 +32,18 @@ DEFAULT_ARGS = {
 }
 
 DEFAULT_TAGS = ["meltano"]
+PROJECT_ROOT = os.getenv("MELTANO_PROJECT_ROOT", os.getcwd())
+MELTANO_BIN = ".meltano/run/bin"
 
-project_root = os.getenv("MELTANO_PROJECT_ROOT", os.getcwd())
-
-meltano_bin = ".meltano/run/bin"
-
-if not Path(project_root).joinpath(meltano_bin).exists():
+if not Path(PROJECT_ROOT).joinpath(MELTANO_BIN).exists():
     logger.warning(
-        f"A symlink to the 'meltano' executable could not be found at '{meltano_bin}'. Falling back on expecting it to be in the PATH instead."
+        f"A symlink to the 'meltano' executable could not be found at '{MELTANO_BIN}'. Falling back on expecting it "
+        f"to be in the PATH instead. "
     )
-    meltano_bin = "meltano"
+    MELTANO_BIN = "meltano"
 
 
-def _meltano_v1_generator(schedules):
+def _meltano_elt_generator(schedules):
     """Generate singular dag's for each legacy Meltano elt task.
 
     Args:
@@ -52,7 +51,6 @@ def _meltano_v1_generator(schedules):
     """
     for schedule in schedules:
         logger.info(f"Considering schedule '{schedule['name']}': {schedule}")
-
         if not schedule["cron_interval"]:
             logger.info(
                 f"No DAG created for schedule '{schedule['name']}' because its interval is set to `@once`.",
@@ -93,17 +91,16 @@ def _meltano_v1_generator(schedules):
 
         elt = BashOperator(
             task_id="extract_load",
-            bash_command=f"cd {project_root}; {meltano_bin} schedule run {schedule['name']}",
+            bash_command=f"cd {PROJECT_ROOT}; {MELTANO_BIN} schedule run {schedule['name']}",
             dag=dag,
         )
 
         # register the dag
         globals()[dag_id] = dag
-
         logger.info(f"DAG created for schedule '{schedule['name']}'")
 
 
-def _meltano_v2_job_generator(schedules):
+def _meltano_job_generator(schedules):
     """Generate dag's for each task within a Meltano scheduled job.
 
     Args:
@@ -133,18 +130,9 @@ def _meltano_v2_job_generator(schedules):
             )
             args = DEFAULT_ARGS.copy()
             args["start_date"] = datetime.utcnow()
-
             dag_id = f"{base_id}_task{idx}"
-
             task_tags = common_tags.copy()
 
-            # from https://airflow.apache.org/docs/stable/scheduler.html#backfill-and-catchup
-            #
-            # It is crucial to set `catchup` to False so that Airflow only create a single job
-            # at the tail end of date window we want to extract data.
-            #
-            # Because our extractors do not support date-window extraction, it serves no
-            # purpose to enqueue date-chunked jobs for complete extraction window.
             dag = DAG(
                 dag_id,
                 description=f"Meltano run task[{idx}]: '{task}'",
@@ -162,31 +150,34 @@ def _meltano_v2_job_generator(schedules):
 
             elt = BashOperator(
                 task_id=f"run_task_{idx}",
-                bash_command=f"cd {project_root}; {meltano_bin} run {run_args}",
+                bash_command=f"cd {PROJECT_ROOT}; {MELTANO_BIN} run {run_args}",
                 dag=dag,
             )
 
-            # register the dag
             globals()[dag_id] = dag
             logger.info(
                 f"Task DAG created for schedule '{schedule['name']}', task='{run_args}'"
             )
 
 
-list_result = subprocess.run(
-    [meltano_bin, "schedule", "list", "--format=json"],
-    cwd=project_root,
-    stdout=subprocess.PIPE,
-    universal_newlines=True,
-    check=True,
-)
+def create_dags():
+    """Create DAGs for Meltano schedules."""
+    list_result = subprocess.run(
+        [MELTANO_BIN, "schedule", "list", "--format=json"],
+        cwd=PROJECT_ROOT,
+        stdout=subprocess.PIPE,
+        universal_newlines=True,
+        check=True,
+    )
+    schedule_export = json.loads(list_result.stdout)
 
-schedule_export = json.loads(list_result.stdout)
+    if schedule_export.get("schedules"):
+        logger.info(f"Received meltano v2 style schedule export: {schedule_export}")
+        _meltano_elt_generator(schedule_export["schedules"].get("elt"))
+        _meltano_job_generator(schedule_export["schedules"].get("job"))
+    else:
+        logger.info(f"Received meltano v1 style schedule export: {schedule_export}")
+        _meltano_elt_generator(schedule_export)
 
-if schedule_export.get("schedules"):
-    logger.info(f"Received meltano v2 style schedule export: {schedule_export}")
-    _meltano_v1_generator(schedule_export["schedules"].get("elt"))
-    _meltano_v2_job_generator(schedule_export["schedules"].get("job"))
-else:
-    logger.info(f"Received meltano v1 style schedule export: {schedule_export}")
-    _meltano_v1_generator(schedule_export)
+
+create_dags()
