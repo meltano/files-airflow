@@ -123,41 +123,42 @@ def _meltano_job_generator(schedules):
         common_tags.append(f"schedule:{schedule['name']}")
         common_tags.append(f"job:{schedule['job']['name']}")
         interval = schedule["cron_interval"]
+        args = DEFAULT_ARGS.copy()
+        args["start_date"] = datetime.utcnow()
 
-        for idx, task in enumerate(schedule["job"]["tasks"]):
-            logger.info(
-                f"Considering task '{task}' of schedule '{schedule['name']}': {schedule}"
-            )
-            args = DEFAULT_ARGS.copy()
-            args["start_date"] = datetime.utcnow()
-            dag_id = f"{base_id}_task{idx}"
-            task_tags = common_tags.copy()
-
-            dag = DAG(
-                dag_id,
-                description=f"Meltano run task[{idx}]: '{task}'",
-                tags=task_tags,
+        with DAG(
+                base_id,
+                tags=common_tags,
                 catchup=False,
                 default_args=args,
                 schedule_interval=interval,
                 max_active_runs=1,
-            )
+        ) as dag:
+            for idx, task in enumerate(schedule["job"]["tasks"]):
+                logger.info(
+                    f"Considering task '{task}' of schedule '{schedule['name']}': {schedule}"
+                )
 
-            if isinstance(task, Iterable) and not isinstance(task, str):
-                run_args = " ".join(task)
-            else:
-                run_args = task
+                task_id = f"{base_id}_task{idx}"
 
-            elt = BashOperator(
-                task_id=f"run_task_{idx}",
-                bash_command=f"cd {PROJECT_ROOT}; {MELTANO_BIN} run {run_args}",
-                dag=dag,
-            )
+                if isinstance(task, Iterable) and not isinstance(task, str):
+                    run_args = " ".join(task)
+                else:
+                    run_args = task
 
-            globals()[dag_id] = dag
-            logger.info(
-                f"Task DAG created for schedule '{schedule['name']}', task='{run_args}'"
-            )
+                run_task = BashOperator(
+                    task_id=task_id,
+                    bash_command=f"cd {PROJECT_ROOT}; {MELTANO_BIN} run {run_args}",
+                    dag=dag,
+                )
+                logger.info(
+                    f"Spun off task '{task}' of schedule '{schedule['name']}': {schedule}"
+                )
+
+        globals()[base_id] = dag
+        logger.info(
+            f"DAG created for schedule '{schedule['name']}', task='{run_args}'"
+        )
 
 
 def create_dags():
