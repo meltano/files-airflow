@@ -146,7 +146,7 @@ def _meltano_job_generator(schedules):
                 else:
                     run_args = task
 
-                run_task = BashOperator(
+                BashOperator(
                     task_id=task_id,
                     bash_command=f"cd {PROJECT_ROOT}; {MELTANO_BIN} run {run_args}",
                     dag=dag,
