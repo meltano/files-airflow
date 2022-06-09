@@ -134,6 +134,7 @@ def _meltano_job_generator(schedules):
                 schedule_interval=interval,
                 max_active_runs=1,
         ) as dag:
+            previous_task = None
             for idx, task in enumerate(schedule["job"]["tasks"]):
                 logger.info(
                     f"Considering task '{task}' of schedule '{schedule['name']}': {schedule}"
@@ -146,11 +147,14 @@ def _meltano_job_generator(schedules):
                 else:
                     run_args = task
 
-                BashOperator(
+                task = BashOperator(
                     task_id=task_id,
                     bash_command=f"cd {PROJECT_ROOT}; {MELTANO_BIN} run {run_args}",
                     dag=dag,
                 )
+                if previous_task:
+                    task.set_upstream(previous_task)
+                previous_task = task
                 logger.info(
                     f"Spun off task '{task}' of schedule '{schedule['name']}': {schedule}"
                 )
