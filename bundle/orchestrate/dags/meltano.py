@@ -124,7 +124,12 @@ def _meltano_job_generator(schedules):
         common_tags.append(f"job:{schedule['job']['name']}")
         interval = schedule["cron_interval"]
         args = DEFAULT_ARGS.copy()
-        args["start_date"] = datetime.utcnow()
+        
+        if schedule["start_date"]:
+            args["start_date"] = schedule["start_date"]
+        else:
+            # Default to epoch; as it's not set to catch-up, so will only run once.
+            args["start_date"] = datetime(1970, 1, 1, 0, 0, 0)
 
         with DAG(
                 base_id,
