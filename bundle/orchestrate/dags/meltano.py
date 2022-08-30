@@ -173,7 +173,7 @@ def _meltano_job_generator(schedules):
 def create_dags():
     """Create DAGs for Meltano schedules."""
     list_result = subprocess.run(
-        [MELTANO_BIN, "schedule", "list", "--format=json"],
+        [MELTANO_BIN, "--log-level=warning", "schedule", "list", "--format=json"],
         cwd=PROJECT_ROOT,
         stdout=subprocess.PIPE,
         universal_newlines=True,
