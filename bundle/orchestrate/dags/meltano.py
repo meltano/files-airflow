@@ -35,6 +35,9 @@ DEFAULT_TAGS = ["meltano"]
 PROJECT_ROOT = os.getenv("MELTANO_PROJECT_ROOT", os.getcwd())
 MELTANO_BIN = ".meltano/run/bin"
 
+# Suppress info-level log from CLI when polling Meltano CLI for schedule updates.
+SCHEDULE_POLLING_LOG_LEVEL = "WARN"
+
 if not Path(PROJECT_ROOT).joinpath(MELTANO_BIN).exists():
     logger.warning(
         f"A symlink to the 'meltano' executable could not be found at '{MELTANO_BIN}'. Falling back on expecting it "
@@ -173,7 +176,13 @@ def _meltano_job_generator(schedules):
 def create_dags():
     """Create DAGs for Meltano schedules."""
     list_result = subprocess.run(
-        [MELTANO_BIN, "--log-level=warning", "schedule", "list", "--format=json"],
+        [
+            MELTANO_BIN,
+            f"--log-level={SCHEDULE_POLLING_LOG_LEVEL}",
+            "schedule",
+            "list",
+            "--format=json"
+        ],
         cwd=PROJECT_ROOT,
         stdout=subprocess.PIPE,
         universal_newlines=True,
