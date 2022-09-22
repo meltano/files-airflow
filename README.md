@@ -1,6 +1,6 @@
 # files-airflow
 
-Meltano project [file bundle](https://meltano.com/docs/command-line-interface.html#file-bundle) for [Airflow](https://airflow.apache.org/).
+Meltano project [file bundle](https://docs.meltano.com/concepts/plugins#file-bundles) for [Airflow](https://airflow.apache.org/).
 
 Files:
 - [`orchestrate/dags/meltano.py`](./bundle/orchestrate/dags/meltano.py)
