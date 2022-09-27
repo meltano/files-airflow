@@ -36,7 +36,7 @@ PROJECT_ROOT = os.getenv("MELTANO_PROJECT_ROOT", os.getcwd())
 MELTANO_BIN = ".meltano/run/bin"
 
 # Suppress info-level log from CLI when polling Meltano CLI for schedule updates.
-SCHEDULE_POLLING_LOG_LEVEL = "WARN"
+SCHEDULE_POLLING_LOG_LEVEL = "warning"
 
 if not Path(PROJECT_ROOT).joinpath(MELTANO_BIN).exists():
     logger.warning(
